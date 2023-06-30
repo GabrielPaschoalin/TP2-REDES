@@ -8,6 +8,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 void usage(int argc, char **argv){
 
@@ -17,6 +18,24 @@ void usage(int argc, char **argv){
 }
 
 #define BUFSZ 1024
+
+void* receive_handler(void* socket_desc) {
+    int sock = *(int*)socket_desc;
+    char buf[BUFSZ];
+    
+    // Receive server response
+    while (recv(sock, buf, sizeof(buf), 0) > 0) {
+        printf("%s\n", buf);
+        memset(buf, 0, sizeof(buf));
+    }
+    
+    // Close the socket when done receiving
+    close(sock);
+    
+    return NULL;
+}
+
+
 
 int main(int argc, char **argv){
 
@@ -51,23 +70,24 @@ int main(int argc, char **argv){
     char buf[BUFSZ];
     memset(buf,0,BUFSZ);
 
+    // Create a thread to receive server responses
+    pthread_t receive_thread;
+    if (pthread_create(&receive_thread, NULL, receive_handler, (void*)&s) < 0) {
+        perror("Thread creation failed");
+        exit(1);
+    }
     while (1)
     {
-
         // Comando
-        printf("<msg> ");
         char comando[BUFSZ];
         fgets(comando, BUFSZ - 1, stdin);
 
         send(s, comando, strlen(comando), 0);
         
-        if(strncmp(comando, "exit", 4) == 0){
+        if(strncmp(comando, "close connection", 16) == 0){
             break;
         }
-
-        recv(s, buf , BUFSZ -1, 0);
-        printf("%s\n", buf);
-
+        
     }
     
     exit(EXIT_SUCCESS);

@@ -31,10 +31,37 @@ struct client_data *clientList[MAX_CLIENTS];
 void send_to_all_clients(const char *message) {
     for (int i = 1; i < MAX_CLIENTS; i++) {
         if (listaId[i] == 1) {
-            printf("teste[%i]", i);
             send(clientList[i]->csock, message, strlen(message), 0);
         }
     }
+}
+
+void sendMessageToClient(int clientSocket, const char* message) {
+    ssize_t bytesSent = send(clientSocket, message, strlen(message), 0);
+    if (bytesSent == -1) {
+        perror("Error sending message to client");
+    }
+}
+
+void listUsers (int clientSocket){
+
+    char saida[30] = "";
+    char new [4];
+
+    for (int i = 1; i <= 15; i++){
+        if (listaId[i] == 1){
+            if(i < 10){
+                sprintf(new, "0%i ", i);
+            }else{
+                sprintf(new, "%i ", i);
+            }
+
+            strcat(saida, new);
+        }
+    }
+
+    sendMessageToClient(clientSocket, saida);
+
 }
 
 void * client_thread(void *data){
@@ -44,24 +71,48 @@ void * client_thread(void *data){
 
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);    
-    printf("User 0%i added\n", cdata->userId);
+
+    if(cdata->userId < 10){
+        printf("User 0%i added\n", cdata->userId);
+    }else{
+        printf("User %i added\n", cdata->userId);
+    }
+    
     clientList[cdata->userId] = cdata;
 
     char mensagem[BUFSZ];
     memset(mensagem, 0, BUFSZ);
-    sprintf(mensagem, "User 0%i joined the group", cdata->userId);
-    send_to_all_clients(mensagem);
+    if(cdata->userId < 10){
+        sprintf(mensagem, "User 0%i joined the group!", cdata->userId);
+    }else{
+        sprintf(mensagem, "User %i joined the group!", cdata->userId);
+    }
 
+    send_to_all_clients(mensagem);
 
     char buf[BUFSZ];
     memset(buf, 0, BUFSZ);
-    size_t count = recv(cdata->csock, buf, BUFSZ-1, 0);
-    printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
+    
+    while (1){
+    
+        size_t count = recv(cdata->csock, buf, BUFSZ-1, 0);
+        if (count == -1){
+            listaId[cdata->userId] = 0;
+            break;
+        }
+        printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
 
-    listaId[cdata->userId] = 0;
+        if (strncmp(buf, "close connection", 16) == 0){
+            listaId[cdata->userId] = 0;
+            break;
+        }
+        else if(strncmp(buf, "list users", 10) == 0){
+            listUsers(cdata->csock);
+        }
+
+    }
 
     close(cdata->csock);
-
     pthread_exit(EXIT_SUCCESS);
 }
 
