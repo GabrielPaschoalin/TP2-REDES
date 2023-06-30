@@ -20,6 +20,7 @@ void usage(int argc, char **argv){
 #define BUFSZ 1024
 #define MAX_CLIENTS 16
 int listaId[MAX_CLIENTS];
+int connectedUsers;
 
 struct client_data{
     int csock;
@@ -149,7 +150,8 @@ void * client_thread(void *data){
     memset(buf, 0, BUFSZ);
     
     while (1){
-    
+        
+
         size_t count = recv(cdata->csock, buf, BUFSZ-1, 0);
         if (count == -1){
             listaId[cdata->userId] = 0;
@@ -160,7 +162,7 @@ void * client_thread(void *data){
         if (strncmp(buf, "close connection", 16) == 0){
 
             closeConnection (cdata);
-        
+            connectedUsers --;
             break;
         }
         else if(strncmp(buf, "list users", 10) == 0){
@@ -231,10 +233,8 @@ int main (int argc, char **argv){
     addrtostr(addr, addrstr, BUFSZ);    
     printf("bound to %s, waiting conections \n", addrstr);
 
-
     while (1){
         
-        //Cliente Chegou
         struct sockaddr_storage cstorage;
         struct sockaddr *caddr = (struct sockaddr *)(&storage);
         socklen_t caddrlen = sizeof(cstorage);
@@ -244,17 +244,29 @@ int main (int argc, char **argv){
             logexit("accept");
         }
 
-        struct client_data *cdata = malloc(sizeof(*cdata));
+        if (connectedUsers >= 15) {
 
-        if (!cdata){
-            logexit("malloc");
+            // Close the socket immediately to prevent the server from accepting more connections.
+            sendMessageToClient(csock, "User limit exceeded");
+            close(csock); // Close the client socket
         }
-        cdata->csock = csock;
-        memcpy(&(cdata->storage), &storage, sizeof(storage));
-        cdata->userId = defineID();    
+        else{
+            //Cliente Chegou
+            connectedUsers ++;
+            struct client_data *cdata = malloc(sizeof(*cdata));
+
+            if (!cdata){
+                logexit("malloc");
+            }
+            cdata->csock = csock;
+            memcpy(&(cdata->storage), &storage, sizeof(storage));
+
+            cdata->userId = defineID();    
+            
+            pthread_t tid;
+            pthread_create(&tid, NULL, client_thread, cdata);
+        }
         
-        pthread_t tid;
-        pthread_create(&tid, NULL, client_thread, cdata);
 
     }
 

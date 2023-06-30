@@ -26,7 +26,7 @@ void* receive_handler(void* socket_desc) {
     // Receive server response
     while (recv(sock, buf, sizeof(buf), 0) > 0) {
         printf("%s\n", buf);
-        memset(buf, 0, sizeof(buf));
+        memset(buf, 0, sizeof(buf)); 
     }
     // Close the socket when done receiving
     close(sock);
