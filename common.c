@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 void logexit(const char *msg){
     perror(msg);
@@ -130,5 +131,81 @@ int server_sockaddr_init(const char *proto, const char* portstr,
 
     }else{
         return -1;
+    }
+}
+
+//---------------------------------------------------------------------------------
+
+#define BUFSZ 1024
+#define MAX_CLIENTS 16
+
+void extractTextInQuotes(const char* input, char* extracted_text) {
+    const char* first_quote = strchr(input, '"');
+    const char* second_quote = strchr(first_quote + 1, '"');
+    size_t length = second_quote - first_quote - 1;
+
+    strncpy(extracted_text, first_quote + 1, length);
+    extracted_text[length] = '\0';
+
+
+}
+
+int extractReceiver(const char* str) {
+    while (*str != '\0') {
+        if (*str >= '1' && *str <= '9') {
+            int digit = *str - '0'; // Convert the character to an integer
+            if (digit >= 1 && digit <= 15) {
+                return digit; // Return the digit if it is in the range 1 to 15
+            }
+        }
+        str++; // Move to the next character in the string
+    }
+    return -1; // Return -1 if the desired digit is not found
+}
+
+void formatTextToOthers(int clientId, const char* message, char* final_message,char* allOrPrivate) {
+    time_t currentTime;
+    struct tm *localTime;
+
+    // Get the current time in seconds since the epoch
+    currentTime = time(NULL);
+
+    // Convert the current time to local time (broken-down time components)
+    localTime = localtime(&currentTime);
+
+    // Format the time as HH:MM into the formattedTime array
+    char formattedTime[6];
+    strftime(formattedTime, sizeof(formattedTime), "%H:%M", localTime);
+
+    // Format the final text using the formatted time, client id, and message
+    if(strncmp(allOrPrivate,"All", 3) == 0){
+        snprintf(final_message, BUFSZ, "[%s] %02d: %s", formattedTime, clientId, message);
+    }else if(strncmp(allOrPrivate,"Private", 7) == 0){
+        snprintf(final_message, BUFSZ, "P[%s] %02d: %s", formattedTime, clientId, message);
+    }
+
+
+}
+
+void formatTextToSender(int ReceiverId, const char* message, char* final_message, char* allOrPrivate) {
+    time_t currentTime;
+    struct tm *localTime;
+
+    // Get the current time in seconds since the epoch
+    currentTime = time(NULL);
+
+    // Convert the current time to local time (broken-down time components)
+    localTime = localtime(&currentTime);
+
+    // Format the time as HH:MM into the formattedTime array
+    char formattedTime[6];
+    strftime(formattedTime, sizeof(formattedTime), "%H:%M", localTime);
+
+    // Format the final text using the formatted time, client id, and message
+    if(strncmp(allOrPrivate,"All", 3) == 0){
+        snprintf(final_message, BUFSZ, "[%s]->all: %s", formattedTime, message);
+    }
+    else if (strncmp(allOrPrivate,"Private", 7) == 0){
+        snprintf(final_message, BUFSZ, "P[%s]->0%i: %s", formattedTime, ReceiverId, message);
     }
 }

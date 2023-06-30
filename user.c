@@ -28,13 +28,11 @@ void* receive_handler(void* socket_desc) {
         printf("%s\n", buf);
         memset(buf, 0, sizeof(buf));
     }
-    
     // Close the socket when done receiving
     close(sock);
     
     return NULL;
 }
-
 
 
 int main(int argc, char **argv){

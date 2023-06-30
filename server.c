@@ -8,6 +8,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <pthread.h>
+#include <time.h>
 
 void usage(int argc, char **argv){
 
@@ -28,6 +29,13 @@ struct client_data{
 
 struct client_data *clientList[MAX_CLIENTS];
 
+void sendMessageToClient(int clientSocket, const char* message) {
+    ssize_t bytesSent = send(clientSocket, message, strlen(message), 0);
+    if (bytesSent == -1) {
+        perror("Error sending message to client");
+    }
+}
+
 void send_to_all_clients(const char *message) {
     for (int i = 1; i < MAX_CLIENTS; i++) {
         if (listaId[i] == 1) {
@@ -36,20 +44,21 @@ void send_to_all_clients(const char *message) {
     }
 }
 
-void sendMessageToClient(int clientSocket, const char* message) {
-    ssize_t bytesSent = send(clientSocket, message, strlen(message), 0);
-    if (bytesSent == -1) {
-        perror("Error sending message to client");
+void send_to_all_clients_except(const char *message, int excluded) {
+    for (int i = 1; i < MAX_CLIENTS; i++) {
+        if (listaId[i] == 1 && clientList[i]->userId != excluded) {
+            send(clientList[i]->csock, message, strlen(message), 0);
+        }
     }
 }
 
-void listUsers (int clientSocket){
+void listUsers (struct client_data *clientSocket){
 
     char saida[30] = "";
     char new [4];
 
     for (int i = 1; i <= 15; i++){
-        if (listaId[i] == 1){
+        if (listaId[i] == 1 && clientSocket->userId != i){
             if(i < 10){
                 sprintf(new, "0%i ", i);
             }else{
@@ -60,7 +69,53 @@ void listUsers (int clientSocket){
         }
     }
 
-    sendMessageToClient(clientSocket, saida);
+    sendMessageToClient(clientSocket->csock, saida);
+
+}
+
+void closeConnection (struct client_data *clientSocket){
+    
+    send_to_all_clients_except("Client disconnected", clientSocket->userId);
+
+    printf("User 0%i removed", clientSocket->userId);
+
+    listaId[clientSocket->userId] = 0;
+
+    sendMessageToClient(clientSocket->csock, "Removed Successfully");
+
+}
+
+void sendAll (const char * buf, struct client_data *sender){
+    
+    char message[BUFSZ];
+    extractTextInQuotes(buf, message);
+
+    char message_sender[BUFSZ];
+    formatTextToSender(0, message, message_sender,"All");
+    sendMessageToClient(sender->csock, message_sender);
+
+    char message_receiver[BUFSZ];
+    formatTextToOthers(sender->userId, message, message_receiver, "All");
+    send_to_all_clients_except(message_receiver, sender->userId);   
+
+}
+
+void sendPrivate (const char * buf, struct client_data *sender){
+
+    char message[BUFSZ];
+    extractTextInQuotes(buf, message);
+
+    int receiver =  extractReceiver(buf);
+
+    char message_sender[BUFSZ];
+    formatTextToSender(receiver, message, message_sender, "Private");
+
+    sendMessageToClient(sender->csock, message_sender);
+
+    char message_receiver[BUFSZ];
+    formatTextToOthers(sender->userId, message, message_receiver, "Private");
+    
+    sendMessageToClient(clientList[receiver]->csock, message_receiver);
 
 }
 
@@ -103,11 +158,19 @@ void * client_thread(void *data){
         printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
 
         if (strncmp(buf, "close connection", 16) == 0){
-            listaId[cdata->userId] = 0;
+
+            closeConnection (cdata);
+        
             break;
         }
         else if(strncmp(buf, "list users", 10) == 0){
-            listUsers(cdata->csock);
+            listUsers(cdata);
+        }
+        else if(strncmp(buf, "send all", 8) == 0){
+            sendAll(buf, cdata);    
+        }
+        else if(strncmp(buf, "send to", 7) == 0){
+            sendPrivate(buf, cdata);
         }
 
     }
