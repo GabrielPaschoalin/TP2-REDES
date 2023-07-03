@@ -62,11 +62,12 @@ void* receive_handler(void* socket_desc) {
             print_ids(buf, user_list);
             printf("%s\n", user_list);
         }else if(strcmp(buf, "OK(01)") == 0){
-            printf("Removed Successfully");
+            printf("Removed Successfully\n");
+            exit(EXIT_SUCCESS);
         }else if(strcmp(buf, "ERROR(02)") == 0){
-            printf("User not found");
+            printf("User not found\n");
         }else if(strcmp(buf, "ERROR(03)") == 0){
-            printf("Receiver not found");
+            printf("Receiver not found\n");
         }
 
         memset(buf, 0, sizeof(buf));
@@ -133,7 +134,6 @@ int main(int argc, char **argv){
         if(strncmp(comando, "close connection", 16) == 0){
             sprintf(message_send, "REQ_REM(%i)", userIdGlobal );
             send(s, message_send, strlen(message_send), 0);
-            break;
         }  
         else if(strncmp(comando, "send to", 7)==0){
 
@@ -146,7 +146,7 @@ int main(int argc, char **argv){
             formatarMSG(text,userIdGlobal,receiver_id,message_send);
                         
             send(s, message_send, strlen(comando), 0);
-            
+
         }else if(strncmp(comando, "send all", 8) == 0){
 
             char text [BUFSZ];

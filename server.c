@@ -166,7 +166,6 @@ void * client_thread(void *data){
             listaId[cdata->userId] = 0;
             break;
         }
-        printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
 
         if (strncmp(buf, "REQ_REM", 7) == 0){
             closeConnection(cdata); // cdata is the client_data pointer for the user being removed
@@ -178,17 +177,21 @@ void * client_thread(void *data){
             listUsers(cdata->csock, cdata->userId);
         }
         else if(strncmp(buf, "MSG", 3) == 0){
+            
 
             int* id1 = (int*)malloc(sizeof(int));;
             int* id2 = (int*)malloc(sizeof(int));;
             char msg [BUFSZ];
-            
-            extractIDsAndMessage(buf, id1, id2, msg);
 
-            if(containsNULL(buf)){ //Privada
+            extractIDsAndMessage(buf, id1, id2, msg);
+            
+            if(containsNULL(buf) && listaId[*id2] == 1){ //Privada
                 sendPrivate(msg, *id1, *id2);
-            }else{
+            }else if (!containsNULL(buf)){
                 sendAll(msg, *id1);
+            }else{
+                char erro[15] = "ERROR(03)";
+                sendMessageToClient(clientList[*id1]->csock, erro);
             }
         }
     }
