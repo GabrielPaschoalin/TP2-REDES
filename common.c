@@ -140,27 +140,15 @@ int server_sockaddr_init(const char *proto, const char* portstr,
 #define MAX_CLIENTS 16
 
 void extractTextInQuotes(const char* input, char* extracted_text) {
-    const char* first_quote = strchr(input, '"');
-    const char* second_quote = strchr(first_quote + 1, '"');
-    size_t length = second_quote - first_quote - 1;
-
-    strncpy(extracted_text, first_quote + 1, length);
-    extracted_text[length] = '\0';
-
-
-}
-
-int extractReceiver(const char* str) {
-    while (*str != '\0') {
-        if (*str >= '1' && *str <= '9') {
-            int digit = *str - '0'; // Convert the character to an integer
-            if (digit >= 1 && digit <= 15) {
-                return digit; // Return the digit if it is in the range 1 to 15
-            }
-        }
-        str++; // Move to the next character in the string
+    const char* start = strchr(input, '"');
+    const char* end = strrchr(input, '"');
+    if (start != NULL && end != NULL && start < end) {
+        strncpy(extracted_text, start + 1, end - start - 1);
+        extracted_text[end - start - 1] = '\0';
+    } else {
+        extracted_text[0] = '\0';
     }
-    return -1; // Return -1 if the desired digit is not found
+
 }
 
 void formatTextToOthers(int clientId, const char* message, char* final_message,char* allOrPrivate) {
@@ -208,4 +196,54 @@ void formatTextToSender(int ReceiverId, const char* message, char* final_message
     else if (strncmp(allOrPrivate,"Private", 7) == 0){
         snprintf(final_message, BUFSZ, "P[%s]->0%i: %s", formattedTime, ReceiverId, message);
     }
+}
+
+void formatJoinMessage(int userId, char* message) {
+    if (userId < 10) {
+        sprintf(message, "User 0%i joined the group!", userId);
+    } else {
+        sprintf(message, "User %i joined the group!", userId);
+    }
+}
+
+void print_ids(const char* response, char* user_list) {
+    int length = strlen(response);
+    if (response[length - 1] == '\n')
+        length--;
+
+    int count = 0;
+    for (int i = 0; i < length; i++) {
+        if (response[i] >= '0' && response[i] <= '9') {
+            user_list[count++] = response[i];
+            user_list[count++] = response[i + 1];
+            user_list[count++] = ' ';
+            i++;
+        }
+    }
+    user_list[count - 1] = '\0';
+
+}
+
+int containsNULL(const char *message) {
+    // Check if the message contains ",NULL,"
+    const char *check = strstr(message, ",NULL,");
+    return (check == NULL) ? 1 : 0;
+}
+
+void extractIDsAndMessage(const char *message, int *id1, int *id2, char *msg) {
+    if (containsNULL(message)) {
+        sscanf(message, "MSG(%d,%d,%[^)])", id1, id2, msg);
+    } else {
+        sscanf(message, "MSG(%d,NULL,%[^)])", id1, msg);
+        *id2 = -1;
+    }
+}
+
+void formatarMSG(const char *message, int id1, int id2, char *msg){
+
+    if(id2 == -1)
+        sprintf(msg, "MSG(%i,NULL,%s)", id1, message);
+    else
+        sprintf(msg, "MSG(%i,%i,%s)", id1, id2 , message);
+
 }

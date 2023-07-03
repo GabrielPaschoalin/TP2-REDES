@@ -18,7 +18,7 @@ void usage(int argc, char **argv){
 }
 
 #define BUFSZ 1024
-#define MAX_CLIENTS 16
+#define MAX_CLIENTS 4
 int listaId[MAX_CLIENTS];
 int connectedUsers;
 
@@ -41,6 +41,7 @@ void send_to_all_clients(const char *message) {
     for (int i = 1; i < MAX_CLIENTS; i++) {
         if (listaId[i] == 1) {
             send(clientList[i]->csock, message, strlen(message), 0);
+            fflush(stdout);
         }
     }
 }
@@ -53,70 +54,77 @@ void send_to_all_clients_except(const char *message, int excluded) {
     }
 }
 
-void listUsers (struct client_data *clientSocket){
+void listUsers(int client_socket, int client_id) {
+    char user_list[BUFSZ];
+    memset(user_list, 0, BUFSZ);
 
-    char saida[30] = "";
-    char new [4];
-
-    for (int i = 1; i <= 15; i++){
-        if (listaId[i] == 1 && clientSocket->userId != i){
-            if(i < 10){
-                sprintf(new, "0%i ", i);
-            }else{
-                sprintf(new, "%i ", i);
-            }
-
-            strcat(saida, new);
+    for (int i = 1; i < MAX_CLIENTS; i++) {
+        if (listaId[i] == 1 && i != client_id) {
+            char user_id[4];
+            sprintf(user_id, "0%i ", i);
+            strcat(user_list, user_id);
         }
     }
 
-    sendMessageToClient(clientSocket->csock, saida);
+    char response[BUFSZ];
+    snprintf(response, BUFSZ + 10, "RES_LIST(%s)", user_list);
+    send(client_socket, response, strlen(response), 0);
+}
+
+
+void closeConnection (struct client_data *client){
+
+    int removedId = client->userId;
+
+    printf("User 0%i removed\n", removedId);
+
+    char all_texto[50];
+    sprintf(all_texto, "REQ_REM(%d)", removedId);
+    send_to_all_clients_except(all_texto, removedId);
+
+    listaId[removedId] = 0;
+
+    sendMessageToClient(client->csock, "OK(01)");
+
+    close(client->csock);
+    free(client);
+    pthread_exit(EXIT_SUCCESS);
+
 
 }
 
-void closeConnection (struct client_data *clientSocket){
+void sendAll (const char *message,  int sender){
     
-    send_to_all_clients_except("Client disconnected", clientSocket->userId);
-
-    printf("User 0%i removed", clientSocket->userId);
-
-    listaId[clientSocket->userId] = 0;
-
-    sendMessageToClient(clientSocket->csock, "Removed Successfully");
-
-}
-
-void sendAll (const char * buf, struct client_data *sender){
-    
-    char message[BUFSZ];
-    extractTextInQuotes(buf, message);
-
     char message_sender[BUFSZ];
     formatTextToSender(0, message, message_sender,"All");
-    sendMessageToClient(sender->csock, message_sender);
+    
+    char message_network[BUFSZ];
+    formatarMSG(message_sender,sender,-1,message_network);
+    sendMessageToClient(clientList[sender]->csock, message_network);
 
     char message_receiver[BUFSZ];
-    formatTextToOthers(sender->userId, message, message_receiver, "All");
-    send_to_all_clients_except(message_receiver, sender->userId);   
+    formatTextToOthers(clientList[sender]->userId, message, message_receiver, "All");
+    formatarMSG(message_receiver,sender,-1,message_network);
+    send_to_all_clients_except(message_network, clientList[sender]->userId);   
 
 }
 
-void sendPrivate (const char * buf, struct client_data *sender){
-
-    char message[BUFSZ];
-    extractTextInQuotes(buf, message);
-
-    int receiver =  extractReceiver(buf);
+void sendPrivate (const char *message,  int sender, int receiver){
 
     char message_sender[BUFSZ];
     formatTextToSender(receiver, message, message_sender, "Private");
+    
+    char message_network[BUFSZ];
+    formatarMSG(message_sender, sender, receiver, message_network);
 
-    sendMessageToClient(sender->csock, message_sender);
+    sendMessageToClient(clientList[sender]->csock, message_network);
 
     char message_receiver[BUFSZ];
-    formatTextToOthers(sender->userId, message, message_receiver, "Private");
+    formatTextToOthers(clientList[sender]->userId, message, message_receiver, "Private");
     
-    sendMessageToClient(clientList[receiver]->csock, message_receiver);
+    formatarMSG(message_receiver, sender, receiver, message_network);
+
+    sendMessageToClient(clientList[receiver]->csock, message_network);
 
 }
 
@@ -136,22 +144,23 @@ void * client_thread(void *data){
     
     clientList[cdata->userId] = cdata;
 
-    char mensagem[BUFSZ];
+    char mensagem[BUFSZ-50];
+    char envio[BUFSZ];
     memset(mensagem, 0, BUFSZ);
-    if(cdata->userId < 10){
-        sprintf(mensagem, "User 0%i joined the group!", cdata->userId);
-    }else{
-        sprintf(mensagem, "User %i joined the group!", cdata->userId);
-    }
+    memset(envio, 0, BUFSZ);
 
-    send_to_all_clients(mensagem);
+    formatJoinMessage(cdata->userId, mensagem);
+    
+    //sprintf(envio, "MSG(%i, NULL, %s)", cdata->userId, mensagem);
+    formatarMSG(mensagem, cdata->userId, -1, envio);
+
+    send_to_all_clients(envio);
+
 
     char buf[BUFSZ];
     memset(buf, 0, BUFSZ);
     
     while (1){
-        
-
         size_t count = recv(cdata->csock, buf, BUFSZ-1, 0);
         if (count == -1){
             listaId[cdata->userId] = 0;
@@ -159,22 +168,29 @@ void * client_thread(void *data){
         }
         printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
 
-        if (strncmp(buf, "close connection", 16) == 0){
+        if (strncmp(buf, "REQ_REM", 7) == 0){
+            closeConnection(cdata); // cdata is the client_data pointer for the user being removed
+            connectedUsers--;
+            pthread_exit(EXIT_SUCCESS);
 
-            closeConnection (cdata);
-            connectedUsers --;
-            break;
         }
         else if(strncmp(buf, "list users", 10) == 0){
-            listUsers(cdata);
+            listUsers(cdata->csock, cdata->userId);
         }
-        else if(strncmp(buf, "send all", 8) == 0){
-            sendAll(buf, cdata);    
-        }
-        else if(strncmp(buf, "send to", 7) == 0){
-            sendPrivate(buf, cdata);
-        }
+        else if(strncmp(buf, "MSG", 3) == 0){
 
+            int* id1 = (int*)malloc(sizeof(int));;
+            int* id2 = (int*)malloc(sizeof(int));;
+            char msg [BUFSZ];
+            
+            extractIDsAndMessage(buf, id1, id2, msg);
+
+            if(containsNULL(buf)){ //Privada
+                sendPrivate(msg, *id1, *id2);
+            }else{
+                sendAll(msg, *id1);
+            }
+        }
     }
 
     close(cdata->csock);
@@ -244,10 +260,10 @@ int main (int argc, char **argv){
             logexit("accept");
         }
 
-        if (connectedUsers >= 15) {
+        if (connectedUsers >= MAX_CLIENTS - 1) {
 
             // Close the socket immediately to prevent the server from accepting more connections.
-            sendMessageToClient(csock, "User limit exceeded");
+            sendMessageToClient(csock, "ERROR(01)");
             close(csock); // Close the client socket
         }
         else{
