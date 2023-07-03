@@ -247,3 +247,15 @@ void formatarMSG(const char *message, int id1, int id2, char *msg){
         sprintf(msg, "MSG(%i,%i,%s)", id1, id2 , message);
 
 }
+
+void req_rem_format(char *str) {
+    const char *prefix = "REQ_REM: ";
+    size_t prefix_len = strlen(prefix);
+    size_t str_len = strlen(str);
+
+    // Verifica se a string começa com o prefixo "REQ_REM: "
+    if (strncmp(str, prefix, prefix_len) == 0) {
+        // Move o restante da string para o início da mesma (incluindo o caractere nulo '\0')
+        memmove(str, str + prefix_len, str_len - prefix_len + 1);
+    }
+}

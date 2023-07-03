@@ -35,9 +35,8 @@ void* receive_handler(void* socket_desc) {
             close(sock);
             exit(EXIT_SUCCESS);
         }else if(strncmp(buf, "REQ_REM", 7) == 0){
-            int msg_id;
-            sscanf(buf, "REQ_REM(%d)", &msg_id);
-            printf("User %i left the group!", msg_id);
+            req_rem_format(buf);
+            printf("%s\n", buf);
         }else if (strncmp(buf, "MSG", 3) == 0) {
             
             char message[BUFSZ];

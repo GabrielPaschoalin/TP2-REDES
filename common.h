@@ -32,3 +32,5 @@ int containsNULL(const char *message);
 void extractIDsAndMessage(const char *message, int *id1, int *id2, char *msg);
 
 void formatarMSG(const char *message, int id1, int id2, char *msg);
+
+void req_rem_format(char *str);

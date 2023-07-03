@@ -71,26 +71,26 @@ void listUsers(int client_socket, int client_id) {
     send(client_socket, response, strlen(response), 0);
 }
 
+void send_to_all_clients_except_user_left(int user_id) {
+    char message[BUFSZ];
+    snprintf(message, BUFSZ, "REQ_REM: User %i left the group!\n", user_id);
+    send_to_all_clients_except(message, user_id);
+}
 
 void closeConnection (struct client_data *client){
 
     int removedId = client->userId;
 
     printf("User 0%i removed\n", removedId);
-
-    char all_texto[50];
-    sprintf(all_texto, "REQ_REM(%d)", removedId);
-    send_to_all_clients_except(all_texto, removedId);
-
+    
     listaId[removedId] = 0;
+    send_to_all_clients_except_user_left(removedId);
 
     sendMessageToClient(client->csock, "OK(01)");
 
     close(client->csock);
     free(client);
     pthread_exit(EXIT_SUCCESS);
-
-
 }
 
 void sendAll (const char *message,  int sender){
@@ -170,8 +170,6 @@ void * client_thread(void *data){
         if (strncmp(buf, "REQ_REM", 7) == 0){
             closeConnection(cdata); // cdata is the client_data pointer for the user being removed
             connectedUsers--;
-            pthread_exit(EXIT_SUCCESS);
-
         }
         else if(strncmp(buf, "list users", 10) == 0){
             listUsers(cdata->csock, cdata->userId);
