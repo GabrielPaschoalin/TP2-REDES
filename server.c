@@ -18,7 +18,7 @@ void usage(int argc, char **argv){
 }
 
 #define BUFSZ 1024
-#define MAX_CLIENTS 4
+#define MAX_CLIENTS 16
 int listaId[MAX_CLIENTS];
 int connectedUsers;
 

@@ -36,7 +36,7 @@ void* receive_handler(void* socket_desc) {
             exit(EXIT_SUCCESS);
         }else if(strncmp(buf, "REQ_REM", 7) == 0){
             req_rem_format(buf);
-            printf("%s\n", buf);
+            printf("%s", buf);
         }else if (strncmp(buf, "MSG", 3) == 0) {
             
             char message[BUFSZ];
@@ -107,7 +107,6 @@ int main(int argc, char **argv){
 
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ);
-    printf("connected to %s \n", addrstr);
 
     char buf[BUFSZ];
     memset(buf,0,BUFSZ);
@@ -134,7 +133,7 @@ int main(int argc, char **argv){
             sprintf(message_send, "REQ_REM(%i)", userIdGlobal );
             send(s, message_send, strlen(message_send), 0);
         }  
-        else if(strncmp(comando, "send to", 7)==0){
+        else if(strncmp(comando, "send to ", 8)==0){
 
             char text [BUFSZ];
             extractTextInQuotes(comando, text);
@@ -144,22 +143,25 @@ int main(int argc, char **argv){
 
             formatarMSG(text,userIdGlobal,receiver_id,message_send);
                         
-            send(s, message_send, strlen(comando), 0);
+            send(s, message_send, strlen(message_send), 0);
 
-        }else if(strncmp(comando, "send all", 8) == 0){
+        }else if(strncmp(comando, "send all ", 9) == 0){
 
             char text [BUFSZ];
             extractTextInQuotes(comando, text);
         
             formatarMSG(text,userIdGlobal,-1,message_send);
         
-            send(s, message_send, strlen(comando), 0);
+            send(s, message_send, strlen(message_send), 0);
 
+        }else if(strcmp(comando, "list users")){
+            send(s, comando, strlen(comando), 0);
         }else{
             printf("invalid command\n");
             continue;
         }
 
+        
 
     }
     
